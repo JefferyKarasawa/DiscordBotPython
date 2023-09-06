@@ -26,7 +26,7 @@ async def on_ready():
 async def on_message(message):
     if message.author == client.user:
         return
-    if message.content == "ping":
+    if str(message.content).lower() == "ping":
         await message.channel.send("pong")
 
 
