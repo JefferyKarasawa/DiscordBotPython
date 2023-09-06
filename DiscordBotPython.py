@@ -1,6 +1,9 @@
 import discord
 import json
 import os
+import settings
+
+logger = settings.logging.getLogger("client")
 
 
 if os.path.exists(os.getcwd() + "/config.json"):
@@ -20,7 +23,9 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
+    logger.info(f"User: {client.user} (ID: {client.user.id})")
     print("Bot is ready.")
+
     
 @client.event
 async def on_message(message):
@@ -38,7 +43,7 @@ async def on_message_edit(before, after):
     
 
 
-client.run(token)
+client.run(token, root_logger=True)
 
 
 
