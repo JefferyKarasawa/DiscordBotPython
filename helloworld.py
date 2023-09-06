@@ -1,2 +1,2 @@
-msg = "Roll a dice"
-print(msg)
+intents = discord.Intents.all()
+client = discord.Client(intents=intents)
