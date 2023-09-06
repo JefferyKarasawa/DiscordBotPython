@@ -24,7 +24,6 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     logger.info(f"User: {client.user} (ID: {client.user.id})")
-    print("Bot is ready.")
 
     
 @client.event
@@ -44,6 +43,8 @@ async def on_message_edit(before, after):
 
 
 client.run(token, root_logger=True)
+
+
 
 
 
