@@ -31,6 +31,11 @@ async def on_message(message):
             await message.channel.send("Python Bot checking in!")
     if str(message.content).lower() == "ping":
         await message.channel.send("pong")
+        
+@client.event
+async def on_message_edit(before, after):
+    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
+    
 
 
 client.run(token)
