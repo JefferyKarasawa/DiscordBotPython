@@ -26,6 +26,9 @@ async def on_ready():
 async def on_message(message):
     if message.author == client.user:
         return
+    if str(message.author) == "kentaru#1633":
+        if str(message.content).lower() == "checking":
+            await message.channel.send("Python Bot checking in!")
     if str(message.content).lower() == "ping":
         await message.channel.send("pong")
 
