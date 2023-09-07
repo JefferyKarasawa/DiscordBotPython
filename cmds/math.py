@@ -13,4 +13,4 @@ async def add (ctx, one : int , two : int):
     
 async def setup(client):
     client.add_command(math)
-    client.add_command(add)
+    #client.add_command(add)

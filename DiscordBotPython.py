@@ -45,10 +45,6 @@ async def on_ready():
 #@client.event
 #async def on_message_edit(before, after):
 #    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
-    
-@client.command
-async def ping(ctx):
-    await ctx.send("pong")  
 
 
 client.run(token, root_logger=True)
