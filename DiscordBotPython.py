@@ -19,7 +19,7 @@ else:
 token = configData["Token"]
 prefix = configData["Prefix"]
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=intents)
 
@@ -39,12 +39,11 @@ async def on_ready():
 #    if str(message.author) == "Kentaru#1633":
 #        if str(message.content).lower() == "checking":
 #            await message.channel.send("Python Bot checking in!")
-#    if str(message.content).lower() == "ping":
-#        await message.channel.send("pong")
+
         
-#@client.event
-#async def on_message_edit(before, after):
-#    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
+@client.event
+async def on_message_edit(before, after):
+    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
 
 
 client.run(token, root_logger=True)
