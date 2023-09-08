@@ -11,7 +11,6 @@ from discord.ext import commands
 async def server(ctx):
     name = ctx.guild.name
     description = ctx.guild.description
-    #region = ctx.guild.region
     icon = ctx.guild.icon
     memberCount = ctx.guild.member_count
     owner = ctx.guild.owner
@@ -22,7 +21,6 @@ async def server(ctx):
         color=discord.Color.dark_grey()
     )
     embed.set_thumbnail(url=icon)
-    #embed.add_field(name="Region", value=region, inline=True)
     embed.add_field(name="Owner", value=owner, inline=True)
     embed.add_field(name="Member Count", value=memberCount, inline=True)
     
