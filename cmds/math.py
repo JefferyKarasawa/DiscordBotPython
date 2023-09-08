@@ -10,6 +10,23 @@ async def math (ctx):
 @math.command()
 async def add (ctx, one : int , two : int):
     await ctx.send(one + two)
+
+@math.command()
+async def multiply (ctx, one : int , two : int):
+    await ctx.send(one * two)
+
+@math.command()
+async def divide (ctx, one : int , two : int):
+    await ctx.send(one / two)
+    
+@math.command()
+async def minus (ctx, one : int , two : int):
+    await ctx.send(one - two)
+    
+@math.command()
+async def squareroot (ctx, one : int):
+    await ctx.send(one * one)
+    
     
 async def setup(client):
     client.add_command(math)
