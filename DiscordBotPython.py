@@ -41,9 +41,9 @@ async def on_ready():
 #            await message.channel.send("Python Bot checking in!")
 
         
-@client.event
-async def on_message_edit(before, after):
-    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
+#@client.event
+#async def on_message_edit(before, after):
+#    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
 
 
 client.run(token, root_logger=True)
