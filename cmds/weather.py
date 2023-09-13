@@ -13,15 +13,15 @@ with open('api_key.json', 'r') as f:
     api_key = json.load(f)
     
 @commands.group(
-    help="Putting this command in will make the bot respond with with pong",
-    description="Command: Ping",
-    brief="Command to respond with pong"
+    help="Displays weather in requested city",
+    description="Command: !weather <city> <state> <country>",
+    brief="Displays weather in requested city"
     
 )
 @commands.cooldown(2, 1, commands.BucketType.default)
-async def weather (ctx, city: str, state : str = None, country : str = None):
+async def weather (ctx, city: str, state: str = None, country: str = None):
     
-    r = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q={city},{country}&units=metric&APPID={api_key['api_key']}")
+    r = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q={city},{state},{country}&units=metric&APPID={api_key['api_key']}")
     json_data = r.json()
     
     weather = json_data['weather'][0]['main']
@@ -33,7 +33,7 @@ async def weather (ctx, city: str, state : str = None, country : str = None):
 #creating embed to send weather info to discord server
     embed = discord.Embed(
         title="Current Weather",
-        description=f"{city.upper()}",
+        description=f"{(str.title(city))}, {(str.title(state))}, {(str.title(country))}",
         color=discord.Color.blue()
 
     )    
