@@ -42,13 +42,33 @@ async def on_ready():
 @client.event
 async def on_message_edit(before, after):
     await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
+
+#using API to grab weather information
     
 with open('api_key.json', 'r') as f:
     api_key = json.load(f)
     
 @client.command()
-async def weather (ctx, city: str, country : str = None):
-    r = requests.get(url: )
+async def weather (ctx, city: str, state : str = None, country : str = None):
+    
+    r = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q={city},{country}&units=metric&APPID={api_key['api_key']}")
+    json_data = r.json()
+    
+    weather = json_data['weather'][0]['main']
+    description = json_data['weather'][0]['description']
+    temp = json_data['main']['temp']
+    icon = "http://openwaetehermap.org/img/wn" + json_data['weather'][0]['icon'] + "@2x.png"
+    
+    print(weather, description, temp)
+    
+    
+#creating error handler for city and country
+async def weather_error(ctx, error):
+    if isinstance(error, commands.CommandInvokeError):
+        await ctx.send("This is not a valid city or country, please try again.")
+    
+    
+    
 
 #start the bot
 client.run(token, root_logger=True)
