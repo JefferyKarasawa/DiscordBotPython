@@ -49,6 +49,7 @@ with open('api_key.json', 'r') as f:
     api_key = json.load(f)
     
 @client.command()
+@commands.cooldown(2, 1, commands.BucketType.default)
 async def weather (ctx, city: str, state : str = None, country : str = None):
     
     r = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q={city},{country}&units=metric&APPID={api_key['api_key']}")
@@ -74,10 +75,12 @@ async def weather (ctx, city: str, state : str = None, country : str = None):
     
     await ctx.send (embed=embed)
 #creating error handler for city and country
-#@weather.error
-#async def weather_error(ctx, error):
-#    if isinstance(error, commands.CommandInvokeError):
-#        await ctx.send("This is not a valid city or country, please try again.")
+@weather.error
+async def weather_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send("This command is on cooldown, please wait a few seconds before inputting the command again")
+    elif isinstance(error, commands.CommandInvokeError):
+        await ctx.send("This is not a valid city or country, please try again.")
         
 
 
