@@ -63,6 +63,7 @@ async def weather (ctx, city: str, state : str = None, country : str = None):
     
     
 #creating error handler for city and country
+@weather.error
 async def weather_error(ctx, error):
     if isinstance(error, commands.CommandInvokeError):
         await ctx.send("This is not a valid city or country, please try again.")
