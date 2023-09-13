@@ -57,7 +57,7 @@ async def weather (ctx, city: str, state : str = None, country : str = None):
     weather = json_data['weather'][0]['main']
     description = json_data['weather'][0]['description']
     temp = json_data['main']['temp']
-    icon = "http://openwaetehermap.org/img/wn" + json_data['weather'][0]['icon'] + "@2x.png"
+    icon = "http://openweathermap.org/img/wn" + json_data['weather'][0]['icon'] + "@2x.png"
     
     print(weather, description, temp)
     
