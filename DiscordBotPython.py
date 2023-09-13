@@ -59,14 +59,28 @@ async def weather (ctx, city: str, state : str = None, country : str = None):
     temp = json_data['main']['temp']
     icon = "http://openweathermap.org/img/wn" + json_data['weather'][0]['icon'] + "@2x.png"
     
-    print(weather, description, temp)
+    #print(weather, description, temp)
+#creating embed to send weather info to discord server
+    embed = discord.Embed(
+        title="Current Weather",
+        description=f"{city.upper()}",
+        color=discord.Color.blue()
+
+    )    
     
+    embed.set_thumbnail(url=icon)
+    embed.add_field(name=weather, value=description, inline=False)
+    embed.add_field(name="Temperature", value=f"{temp}\u2103", inline=False)
     
+    await ctx.send (embed=embed)
 #creating error handler for city and country
-@weather.error
-async def weather_error(ctx, error):
-    if isinstance(error, commands.CommandInvokeError):
-        await ctx.send("This is not a valid city or country, please try again.")
+#@weather.error
+#async def weather_error(ctx, error):
+#    if isinstance(error, commands.CommandInvokeError):
+#        await ctx.send("This is not a valid city or country, please try again.")
+        
+
+
     
     
     
