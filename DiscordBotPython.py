@@ -3,7 +3,9 @@ import json
 import os
 import settings
 from discord.ext import commands
+import requests
 
+#making secure file config.json to add in prefix and token
 logger = settings.logging.getLogger("client")
 
 
@@ -19,10 +21,12 @@ else:
 token = configData["Token"]
 prefix = configData["Prefix"]
 
+#intents and bot start command
 intents = discord.Intents.all()
 intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=intents)
 
+#logging info
 @client.event
 async def on_ready():
     logger.info(f"User: {client.user} (ID: {client.user.id})")
@@ -32,20 +36,14 @@ async def on_ready():
             await client.load_extension(f"cmds.{cmd_file.name[:-3]}")
 
     
-#@client.event
-#async def on_message(message):
-#    if message.author == client.user:
-#        return
-#    if str(message.author) == "Kentaru#1633":
-#        if str(message.content).lower() == "checking":
-#            await message.channel.send("Python Bot checking in!")
+
 
         
-#@client.event
-#async def on_message_edit(before, after):
-#    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
+@client.event
+async def on_message_edit(before, after):
+    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
 
-
+#start the bot
 client.run(token, root_logger=True)
 
 
