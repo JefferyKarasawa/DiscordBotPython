@@ -35,21 +35,10 @@ async def on_ready():
         if cmd_file.name != "__init__.py":
             await client.load_extension(f"cmds.{cmd_file.name[:-3]}")
 
-    
 
-
-        
 #@client.event
 #async def on_message_edit(before, after):
 #    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
-
-
-        
-
-
-    
-    
-    
 
 #start the bot
 client.run(token, root_logger=True)
