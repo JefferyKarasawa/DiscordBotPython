@@ -42,6 +42,13 @@ async def on_ready():
 @client.event
 async def on_message_edit(before, after):
     await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
+    
+with open('api_key.json', 'r') as f:
+    api_key = json.load(f)
+    
+@client.command()
+async def weather (ctx, city: str, country : str = None):
+    r = requests.get(url: )
 
 #start the bot
 client.run(token, root_logger=True)
