@@ -52,8 +52,8 @@ async def currentweather (ctx, city: str, state: str = None, country: str = None
     
     await ctx.send (embed=embed)
 #creating error handler for city and country
-@weather.error
-async def weather_error(ctx, error):
+@currentweather.error
+async def currentweather_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send("This command is on cooldown, please wait a few seconds before inputting the command again")
     elif isinstance(error, commands.CommandInvokeError):
@@ -88,8 +88,8 @@ async def city (ctx, city: str):
     
     await ctx.send (embed=embed)
 #creating error handler for city and country
-@weather.error
-async def weather_error(ctx, error):
+@city.error
+async def city_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send("This command is on cooldown, please wait a few seconds before inputting the command again")
     elif isinstance(error, commands.CommandInvokeError):
