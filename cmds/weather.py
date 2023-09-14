@@ -94,6 +94,8 @@ async def weather_error(ctx, error):
         await ctx.send("This command is on cooldown, please wait a few seconds before inputting the command again")
     elif isinstance(error, commands.CommandInvokeError):
         await ctx.send("This is not a valid city, please try again.")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Missing city, please input proper city")
         
 async def setup(client):
     client.add_command(weather)
