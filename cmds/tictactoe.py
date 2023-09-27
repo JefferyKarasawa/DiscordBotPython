@@ -10,6 +10,19 @@ gameOver = True
 
 board = []
 
+#create new variable with array inside an array 2d arrays
+winningConditions = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [6, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6]
+    
+]
+
 
 @commands.group(
     help="Initiates TicTacToe Game",
@@ -102,7 +115,42 @@ async def place(ctx, pos: int):
                         line = ""
                     else:
                         line += " " + board[x]
+            #check winner with winningConditions
+                checkWinner(winningConditions, mark)
+            
+                if gameOver == True:
+                    await ctx.send(mark + "wins!")
+                
+            #checking if the game is a tie or not
+            
+                elif count >= 9:
+                    gameOver = True
+                    await ctx.send("Game is a tie! PLay again!")
 
+            #switching turns between player1 and player2
+                if turn == player1:
+                    turn = player2
+                elif turn == player2:
+                    turn = player1
+            #making sure the players choose and unmarked tile and its between 1 and 9 (within the board parameters)
+            else:
+                await ctx.send("Please choose an integer between 1 and 9 and make sure it's an unmarked tile!")
+                
+        #else statement incase they try to go when it's not their turn
+        else:
+            await ctx.send("Please wait for your turn!")
+            
+    #this else statement makes sure the game has been started
+    else:
+        await ctx.send ("Please start a new game with the !tictactoe command!")
+#create a function to check if there is a winner of the game
+
+def checkWinner(winningConditions, mark):
+    global gameOver
+    #create a for loop to check the winningConditions
+    for condition in winningConditions:
+        if board[condition[0]] == mark and board[condition[1]] == mark and board [condition[2]] == mark:
+            gameOver = True
 
 
   
