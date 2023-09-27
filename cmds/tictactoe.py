@@ -66,6 +66,45 @@ async def tictactoe (ctx, p1: discord.Member, p2: discord.Member):
     else:
         await ctx.send("A game is already in progress, please finish the current game in order to start a new game!")
     
+#lets create a command to place the mark
+async def place(ctx, pos: int):
+    global turn
+    global player1
+    global player2
+    global board
+    global count
+    global gameOver
     
+    #checking if game is over or not
+    
+    if not gameOver:
+        mark = ""
+        #checking if its the players turn
+        if turn == ctx.author:
+            #now checking which players turn it is
+            if turn == player1:
+                mark = ":regional_x_indicator_x:"
+                #putting in elif statement for player2
+            elif turn == player2:
+                mark = ":o2:"
+            #creating another if statement to check the board square is valid and doesn't have a mark in it already
+            if 0 < pos < 10 and board[pos - 1] == ":white_large_square:":
+                #set the board's element equal to the mark that is put in
+                board [pos - 1] = mark
+                count += 1
+                
+                #lets print the board to the discord channel again with the updated mark
+                line = ""
+                for x in range (len(board)):
+                    if x == 2 or x == 5 or x == 8:
+                        line += " " + board[x]
+                        await ctx.send(line)
+                        line = ""
+                    else:
+                        line += " " + board[x]
+
+
+
+  
 async def setup(client):
     client.add_command(tictactoe)
