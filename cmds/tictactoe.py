@@ -29,7 +29,9 @@ async def tictactoe (ctx, p1: discord.Member, p2: discord.Member):
     if gameOver:
         global board
     #set the board into an array, input discord emoji of white_large_square
-        board = [":white_large_square:", ":white_large_square:", ":white_large_square:"]
+        board = [":white_large_square:", ":white_large_square:", ":white_large_square:"
+                 ":white_large_square:", ":white_large_square:", ":white_large_square:"
+                 ":white_large_square:", ":white_large_square:", ":white_large_square:"]
     
     
 async def setup(client):
