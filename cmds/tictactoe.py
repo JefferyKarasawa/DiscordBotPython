@@ -30,7 +30,14 @@ winningConditions = [
     brief="Command to play tictactoe"
 )
         
-async def tictactoe (ctx, p1: discord.Member, p2: discord.Member):
+async def tictactoe (ctx):
+    
+    if ctx.invoked_subcommand is None:
+        await ctx.send(f"No, {ctx.subcommand_passed} does not belong to the tictactoe command")
+        
+@tictactoe.command()
+async def start (ctx, p1: discord.Member, p2: discord.Member):
+
     #make the variables and players global
     global count
     global player1
@@ -80,6 +87,7 @@ async def tictactoe (ctx, p1: discord.Member, p2: discord.Member):
         await ctx.send("A game is already in progress, please finish the current game in order to start a new game!")
     
 #lets create a command to place the mark
+@tictactoe.command()
 async def place(ctx, pos: int):
     global turn
     global player1
@@ -96,7 +104,7 @@ async def place(ctx, pos: int):
         if turn == ctx.author:
             #now checking which players turn it is
             if turn == player1:
-                mark = ":regional_x_indicator_x:"
+                mark = ":regional_indicator_x:"
                 #putting in elif statement for player2
             elif turn == player2:
                 mark = ":o2:"
@@ -125,7 +133,7 @@ async def place(ctx, pos: int):
             
                 elif count >= 9:
                     gameOver = True
-                    await ctx.send("Game is a tie! PLay again!")
+                    await ctx.send("Game is a tie! Use !tictactoe to play again!")
 
             #switching turns between player1 and player2
                 if turn == player1:
@@ -151,6 +159,18 @@ def checkWinner(winningConditions, mark):
     for condition in winningConditions:
         if board[condition[0]] == mark and board[condition[1]] == mark and board [condition[2]] == mark:
             gameOver = True
+            
+@tictactoe.error
+async def tictactoe_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Please mention 2 player for this command")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("Please make sure to mention the players")
+        
+@place.error
+async def place_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Please make sure to input an integer!")
 
 
   
