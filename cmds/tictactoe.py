@@ -18,7 +18,18 @@ board = []
 )
         
 async def tictactoe (ctx, p1: discord.Member, p2: discord.Member):
-    await ctx.send("Tictactoe game")
+    #make the variables and players global
+    global count
+    global player1
+    global player2
+    global turn
+    global gameOver
+    
+    #checking if the game is over first
+    if gameOver:
+        global board
+    #set the board into an array, input discord emoji of white_large_square
+        board = [":white_large_square:", ":white_large_square:", ":white_large_square:"]
     
     
 async def setup(client):
