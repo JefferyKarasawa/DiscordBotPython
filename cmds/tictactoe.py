@@ -171,6 +171,20 @@ async def tictactoe_error(ctx, error):
 async def place_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send("Please make sure to input an integer!")
+        
+@tictactoe.command()
+async def stop(ctx):
+    global gameOver
+    gameOver = True
+    if gameOver == True:
+        await ctx.send("Game has been stopped by user")
+        
+@tictactoe.command()
+async def finish(ctx):
+    global gameOver
+    gameOver = True
+    if gameOver == True:
+        await ctx.send("Game has been stopped by user")
 
 
   
