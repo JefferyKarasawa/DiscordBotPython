@@ -4,9 +4,9 @@ from discord.ext import commands
 
 
 @commands.group(
-    help="Putting this command in will make the bot respond with with pong",
-    description="Command: Ping",
-    brief="Command to respond with pong"
+    help="You can use this command to check the bot in",
+    description="Command: !Checking",
+    brief="Command to check the bot in"
 )
 @commands.has_any_role("moderator", "owner")
 
