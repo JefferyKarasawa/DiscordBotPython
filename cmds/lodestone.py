@@ -7,7 +7,7 @@ import requests
 
 XIVAPI_BASE_URL = 'https://xivapi.com/'
 
-XIVAPIKEY = '986957cd4c7247d68e97acf6030333b6688ab6642cba42c4b3701b1c4854db2a'
+XIVAPIKEY = ''
 
 @commands.group()
 async def lodestone(ctx):
