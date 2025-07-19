@@ -26,6 +26,8 @@ intents = discord.Intents.all()
 intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=intents)
 
+
+
 #logging info
 @client.event
 async def on_ready():
