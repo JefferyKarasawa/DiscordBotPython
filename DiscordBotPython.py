@@ -32,10 +32,13 @@ client = commands.Bot(command_prefix="!", intents=intents)
 @client.event
 async def on_ready():
     logger.info(f"User: {client.user} (ID: {client.user.id})")
-    
+
     for cmd_file in settings.CMDS_DIR.glob("*.py"):
         if cmd_file.name != "__init__.py":
             await client.load_extension(f"cmds.{cmd_file.name[:-3]}")
+
+    await client.tree.sync()
+    logger.info("Slash commands synced.")
 
 
 #@client.event

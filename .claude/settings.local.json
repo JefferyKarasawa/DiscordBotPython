@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:v2.xivapi.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
