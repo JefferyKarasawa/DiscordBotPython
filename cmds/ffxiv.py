@@ -40,12 +40,17 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.cache = TTLCache(ttl=300)
-        self.world_cache = {"worlds": {}, "last_updated": 0}
+        self.location_cache = {
+            "worlds": {},       # lower -> proper name
+            "datacenters": {},  # lower -> proper name
+            "regions": {},      # lower -> proper name
+            "last_updated": 0,
+        }
         self.session: aiohttp.ClientSession | None = None
 
     async def cog_load(self):
         self.session = aiohttp.ClientSession()
-        await self.fetch_worlds()
+        await self.fetch_locations()
         self.cache_cleanup_task.start()
 
     async def cog_unload(self):
@@ -61,22 +66,51 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
         self.cache.cleanup()
 
     # =============================
-    # Dynamic World Fetching (Universalis)
+    # Location Fetching (Worlds, Data Centers, Regions via Universalis)
     # =============================
-    async def fetch_worlds(self):
+    async def fetch_locations(self):
         async with self.session.get("https://universalis.app/api/v2/worlds") as resp:
             if resp.status == 200:
                 data = await resp.json()
-                self.world_cache["worlds"] = {
+                self.location_cache["worlds"] = {
                     w["name"].lower(): w["name"] for w in data
                 }
-                self.world_cache["last_updated"] = time.time()
 
-    def is_valid_world(self, world_name: str) -> bool:
-        return world_name.lower() in self.world_cache["worlds"]
+        async with self.session.get("https://universalis.app/api/v2/data-centers") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for dc in data:
+                    self.location_cache["datacenters"][dc["name"].lower()] = dc["name"]
+                    region = dc["region"]
+                    self.location_cache["regions"][region.lower()] = region
 
-    def normalize_world(self, world_name: str) -> str:
-        return self.world_cache["worlds"].get(world_name.lower())
+        self.location_cache["last_updated"] = time.time()
+
+    def is_valid_location(self, name: str) -> bool:
+        lower = name.lower()
+        return (
+            lower in self.location_cache["worlds"]
+            or lower in self.location_cache["datacenters"]
+            or lower in self.location_cache["regions"]
+        )
+
+    def normalize_location(self, name: str) -> str:
+        lower = name.lower()
+        return (
+            self.location_cache["worlds"].get(lower)
+            or self.location_cache["datacenters"].get(lower)
+            or self.location_cache["regions"].get(lower)
+        )
+
+    def location_type(self, name: str) -> str:
+        lower = name.lower()
+        if lower in self.location_cache["worlds"]:
+            return "World"
+        if lower in self.location_cache["datacenters"]:
+            return "Data Center"
+        if lower in self.location_cache["regions"]:
+            return "Region"
+        return "Location"
 
     # =============================
     # Helper: Detect Japanese vs English
@@ -195,26 +229,36 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
             await ctx.send("Usage: `!translate_item <en|ja> <name>`")
 
     # =============================
-    # Market Board Pricing — !market <item_id> <world>
+    # Market Board Pricing — !market <world|dc|region> <item name>
     # =============================
     @commands.command(
         name="market",
-        help="Get market board pricing for an item. Usage: !market <item_id> <world>",
-        description="Command: !market <item_id> <world>",
+        help="Get market board pricing for an item. Usage: !market <world|dc|region> <item name>",
+        description="Command: !market <world|dc|region> <item name>",
         brief="Get market board pricing"
     )
-    async def market_price(self, ctx: commands.Context, item_id: int, world: str):
-        if not self.is_valid_world(world):
-            await ctx.send(f"`{world}` is not a valid world name.")
+    async def market_price(self, ctx: commands.Context, location: str, *, item_name: str):
+        if not self.is_valid_location(location):
+            await ctx.send(f"`{location}` is not a valid world, data center, or region.")
             return
 
-        world = self.normalize_world(world)
-        cache_key = f"market:{item_id}:{world.lower()}"
+        loc_type = self.location_type(location)
+        location = self.normalize_location(location)
+
+        results = await self.garland_search(item_name)
+        if not results:
+            await ctx.send(f"No item found for `{item_name}`.")
+            return
+
+        item_id = results[0]["obj"]["i"]
+        resolved_name = results[0]["obj"]["n"]
+
+        cache_key = f"market:{item_id}:{location.lower()}"
         data = self.cache.get(cache_key)
 
         if not data:
             async with self.session.get(
-                f"https://universalis.app/api/v2/{world}/{item_id}"
+                f"https://universalis.app/api/v2/{location}/{item_id}"
             ) as resp:
                 if resp.status != 200:
                     await ctx.send("Failed to fetch market data.")
@@ -223,8 +267,9 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
                 self.cache.set(cache_key, data)
 
         embed = discord.Embed(
-            title=f"Market Data for Item {item_id}",
-            description=f"World: {world}",
+            title=resolved_name,
+            url=GARLAND_DB.format(item_id=item_id),
+            description=f"{loc_type}: {location}",
             color=discord.Color.gold()
         )
         embed.add_field(name="Minimum Price", value=data.get("minPrice") or "N/A")
@@ -235,9 +280,7 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
     @market_price.error
     async def market_price_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Usage: `!market <item_id> <world>`")
-        elif isinstance(error, commands.BadArgument):
-            await ctx.send("Item ID must be a number. Usage: `!market <item_id> <world>`")
+            await ctx.send("Usage: `!market <world|dc|region> <item name>`")
 
 
 async def setup(bot: commands.Bot):

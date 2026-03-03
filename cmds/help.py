@@ -76,7 +76,7 @@ class HelpCog(commands.Cog, name="Help"):
             value=(
                 "`!item <name>` — Search for an item (EN/JP auto-detect)\n"
                 "`!translate_item <en|ja> <name>` — Translate an item name\n"
-                "`!market <item_id> <world>` — Market board pricing via Universalis"
+                "`!market <world|dc|region> <item name>` — Market board pricing via Universalis"
             ),
             inline=False
         )
