@@ -233,9 +233,9 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
     # =============================
     @commands.command(
         name="market",
-        help="Get market board pricing for an item. Usage: !market <world|dc|region> <item name>",
+        help="Get market board pricing for an item including HQ/NQ, retainers, and servers. Usage: !market <world|dc|region> <item name>",
         description="Command: !market <world|dc|region> <item name>",
-        brief="Get market board pricing"
+        brief="Get detailed market board pricing"
     )
     async def market_price(self, ctx: commands.Context, location: str, *, item_name: str):
         if not self.is_valid_location(location):
@@ -266,14 +266,102 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
                 data = await resp.json()
                 self.cache.set(cache_key, data)
 
+        # Separate NQ and HQ listings
+        nq_listings = [l for l in data.get("listings", []) if not l.get("hq")]
+        hq_listings = [l for l in data.get("listings", []) if l.get("hq")]
+
         embed = discord.Embed(
             title=resolved_name,
             url=GARLAND_DB.format(item_id=item_id),
             description=f"{loc_type}: {location}",
             color=discord.Color.gold()
         )
-        embed.add_field(name="Minimum Price", value=data.get("minPrice") or "N/A")
-        embed.add_field(name="Average Price", value=data.get("averagePrice") or "N/A")
+
+        # Overall pricing
+        overall_min = data.get("minPrice")
+        overall_avg = data.get("averagePrice")
+        embed.add_field(
+            name="Overall Pricing",
+            value=f"Min: {overall_min or 'N/A'} | Avg: {overall_avg or 'N/A'}",
+            inline=False
+        )
+
+        # NQ Pricing
+        if nq_listings:
+            nq_min = min(l["pricePerUnit"] for l in nq_listings)
+            nq_avg = sum(l["pricePerUnit"] for l in nq_listings) / len(nq_listings)
+            embed.add_field(
+                name="NQ Pricing",
+                value=f"Min: {nq_min} | Avg: {nq_avg:.0f} | Listings: {len(nq_listings)}",
+                inline=False
+            )
+
+        # HQ Pricing
+        if hq_listings:
+            hq_min = min(l["pricePerUnit"] for l in hq_listings)
+            hq_avg = sum(l["pricePerUnit"] for l in hq_listings) / len(hq_listings)
+            embed.add_field(
+                name="HQ Pricing",
+                value=f"Min: {hq_min} | Avg: {hq_avg:.0f} | Listings: {len(hq_listings)}",
+                inline=False
+            )
+
+        # Cheapest listings with retainer and server info
+        all_listings = sorted(data.get("listings", [])[:5], key=lambda x: x.get("pricePerUnit", 0))
+        if all_listings:
+            listings_text = ""
+            for i, listing in enumerate(all_listings, 1):
+                quality = "HQ" if listing.get("hq") else "NQ"
+                price = listing.get("pricePerUnit", "N/A")
+                qty = listing.get("quantity", "?")
+                retainer = listing.get("retainerName", "Unknown")
+                server = listing.get("worldName", "?")
+                listings_text += f"`{quality}` {price}g (x{qty}) - {retainer} @ {server}\n"
+
+            embed.add_field(
+                name="Cheapest Listings (Top 5)",
+                value=listings_text.strip(),
+                inline=False
+            )
+
+        # Server breakdown for regions/data centers
+        if loc_type in ["Data Center", "Region"]:
+            server_prices = {}
+            for listing in data.get("listings", []):
+                world = listing.get("worldName", "Unknown")
+                price = listing.get("pricePerUnit", 0)
+                hq_status = listing.get("hq", False)
+
+                if world not in server_prices:
+                    server_prices[world] = {"NQ": [], "HQ": []}
+
+                key = "HQ" if hq_status else "NQ"
+                server_prices[world][key].append(price)
+
+            server_text = ""
+            for world in sorted(server_prices.keys()):
+                prices = server_prices[world]
+                nq_min = min(prices["NQ"]) if prices["NQ"] else None
+                hq_min = min(prices["HQ"]) if prices["HQ"] else None
+
+                price_str = ""
+                if nq_min:
+                    price_str += f"NQ: {nq_min}g"
+                if hq_min:
+                    if price_str:
+                        price_str += f" | HQ: {hq_min}g"
+                    else:
+                        price_str = f"HQ: {hq_min}g"
+
+                if price_str:
+                    server_text += f"{world}: {price_str}\n"
+
+            if server_text:
+                embed.add_field(
+                    name="Server Breakdown",
+                    value=server_text.strip(),
+                    inline=False
+                )
 
         await ctx.send(embed=embed)
 
