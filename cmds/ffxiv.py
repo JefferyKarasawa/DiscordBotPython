@@ -142,22 +142,102 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
             data = await resp.json()
             return data.get("item", {})
 
+    @staticmethod
+    def _normalize_icon_url(icon_value) -> str | None:
+        if not icon_value:
+            return None
+        if isinstance(icon_value, int):
+            return f"https://www.garlandtools.org/files/icons/item/{icon_value}.png"
+        if isinstance(icon_value, float):
+            return f"https://www.garlandtools.org/files/icons/item/{int(icon_value)}.png"
+        if isinstance(icon_value, str):
+            if icon_value.isdigit():
+                return f"https://www.garlandtools.org/files/icons/item/{icon_value}.png"
+            if icon_value.startswith("http://") or icon_value.startswith("https://"):
+                return icon_value
+            if icon_value.startswith("//"):
+                return f"https:{icon_value}"
+            if icon_value.startswith("/"):
+                return f"https://www.garlandtools.org{icon_value}"
+            return f"https://www.garlandtools.org/{icon_value.lstrip('/')}"
+        return None
+
+    @staticmethod
+    def _format_item_stats(item: dict, compact: bool = False) -> str | None:
+        label_map = [
+            ("Item Level", "ilvl"),
+            ("Required Level", "rlv"),
+            ("Rarity", "rarity"),
+            ("Materia Slots", "materiaSlotCount"),
+            ("Stack Size", "stack"),
+            ("Defense", "defense"),
+            ("Magic Defense", "magicDefense"),
+            ("Physical Damage", "damage"),
+            ("Auto-Attack", "autoAttack"),
+            ("Delay", "delay"),
+            ("Block", "block"),
+            ("Block Rate", "blockRate"),
+            ("Can Be HQ", "canBeHq"),
+            ("Unique", "isUnique"),
+            ("Untradable", "isUntradable"),
+        ]
+
+        lines = []
+        for label, key in label_map:
+            value = item.get(key)
+            if value is None or value == "":
+                continue
+            if isinstance(value, bool):
+                value = "Yes" if value else "No"
+            lines.append(f"{label}: {value}")
+
+        nested_stats = item.get("stats")
+        if isinstance(nested_stats, dict):
+            for key, value in nested_stats.items():
+                if value is None or value == "":
+                    continue
+                lines.append(f"{str(key).replace('_', ' ').title()}: {value}")
+
+        if not lines:
+            return None
+
+        if compact:
+            lines = lines[:6]
+
+        stats_text = "\n".join(lines)
+        return stats_text[:1021] + "..." if len(stats_text) > 1024 else stats_text
+
     # =============================
     # Item Search — !item <name>
     # =============================
     @commands.command(
         name="item",
-        help="Search for an FFXIV item by name (English or Japanese)",
-        description="Command: !item <name>",
+        help="Search for an FFXIV item by name (English/Japanese). Use !item short <name> for compact output",
+        description="Command: !item [short|--short] <name>",
         brief="Search for an FFXIV item"
     )
     async def item_search(self, ctx: commands.Context, *, name: str):
-        detected_lang = self.detect_language(name)
-        cache_key = f"item:auto:{name.lower()}"
+        compact = False
+        query_name = name.strip()
+        lowered = query_name.lower()
+
+        if lowered.startswith("short "):
+            compact = True
+            query_name = query_name[6:].strip()
+        elif lowered.startswith("--short "):
+            compact = True
+            query_name = query_name[8:].strip()
+
+        if not query_name:
+            await ctx.send("Please provide an item name. Usage: `!item [short|--short] <name>`")
+            return
+
+        detected_lang = self.detect_language(query_name)
+        cache_key = f"item:auto:{query_name.lower()}"
         results = self.cache.get(cache_key)
 
         if results is None:
-            results = await self.garland_search(name, lang=detected_lang)
+            results = await self.garland_search(query_name, lang=detected_lang)
             self.cache.set(cache_key, results)
 
         if not results:
@@ -177,17 +257,35 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
             url=GARLAND_DB.format(item_id=item_id),
             color=discord.Color.blurple()
         )
+
+        icon_url = self._normalize_icon_url(en_item.get("icon") or ja_item.get("icon"))
+        if icon_url:
+            embed.set_thumbnail(url=icon_url)
+
         embed.add_field(name="English", value=en_item.get("name", "N/A"), inline=False)
         embed.add_field(name="Japanese", value=ja_item.get("name", "N/A"), inline=False)
         embed.add_field(name="Item Level", value=en_item.get("ilvl", "N/A"))
+        embed.add_field(name="Required Level", value=en_item.get("rlv", "N/A"))
+
+        category = en_item.get("category")
+        if isinstance(category, dict):
+            category = category.get("name")
+        if category:
+            embed.add_field(name="Category", value=category)
+
+        stats_text = self._format_item_stats(en_item, compact=compact)
+        if stats_text:
+            embed.add_field(name="Stats", value=stats_text, inline=False)
+
         embed.add_field(name="Detected Input Language", value=detected_lang.upper())
+        embed.set_footer(text="Data & image from garlandtools.org")
 
         await ctx.send(embed=embed)
 
     @item_search.error
     async def item_search_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Please provide an item name. Usage: `!item <name>`")
+            await ctx.send("Please provide an item name. Usage: `!item [short|--short] <name>`")
 
     # =============================
     # Cross-Language Translation — !translate_item <en|ja> <name>
