@@ -60,7 +60,7 @@ async def ban_error(ctx, error):
 async def unban (ctx, *, member):
     banned_members = await ctx.guild.bans()
     for person in banned_members:
-        user: person.user
+        user = person.user
         if member == str(user):
             await ctx.guild.unban(member)
             

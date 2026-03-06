@@ -1,13 +1,36 @@
+import re
 import time
 import asyncio
+import html as html_lib
+from html.parser import HTMLParser
 import aiohttp
 import discord
 from discord.ext import commands, tasks
 
 
+# Eriones.com — used by !item (JP site for search + JP names, EN site for EN names)
+ERIONES_JP      = "https://eriones.com"
+ERIONES_EN      = "https://en.eriones.com"
+ERIONES_SEARCH_JP = "https://eriones.com/tmp/load/db"
+ERIONES_SEARCH_EN = "https://en.eriones.com/tmp/load/db"
+
+# Garland Tools — still used by !market and !translate_item
 GARLAND_SEARCH = "https://www.garlandtools.org/api/search.php"
 GARLAND_ITEM   = "https://www.garlandtools.org/db/doc/item/{lang}/3/{item_id}.json"
 GARLAND_DB     = "https://www.garlandtools.org/db/#item/{item_id}"
+
+
+class _VisibleTextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str):
+        if data:
+            self.parts.append(data)
+
+    def get_text(self) -> str:
+        return "".join(self.parts)
 
 
 # =============================
@@ -37,6 +60,28 @@ class TTLCache:
 
 
 class FFXIVCog(commands.Cog, name="FFXIV"):
+    EQUIPMENT_SLOT_KEYWORDS = {
+        "weapon": "Weapon",
+        "secondary": "Secondary Weapon",
+        "shield": "Shield",
+        "head": "Head",
+        "body": "Body",
+        "hands": "Hands",
+        "feet": "Feet",
+        "legs": "Legs",
+        "neck": "Neck",
+        "ring": "Finger",
+        "finger": "Finger",
+        "ear": "Ear",
+        "wrist": "Wrist",
+    }
+
+    FULLWIDTH_TRANSLATION = str.maketrans({
+        "０": "0", "１": "1", "２": "2", "３": "3", "４": "4",
+        "５": "5", "６": "6", "７": "7", "８": "8", "９": "9",
+        "＋": "+", "－": "-", "：": ":", "／": "/", "　": " ",
+    })
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.cache = TTLCache(ttl=300)
@@ -162,6 +207,348 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
             return f"https://www.garlandtools.org/{icon_value.lstrip('/')}"
         return None
 
+    # =============================
+    # Eriones Helpers
+    # =============================
+    @staticmethod
+    def _normalize_search_name(value: str | None) -> str:
+        if not value:
+            return ""
+        lowered = html_lib.unescape(value).casefold()
+        return re.sub(r"[\W_]+", "", lowered, flags=re.UNICODE)
+
+    def _match_priority(self, query: str, candidate: str) -> tuple[int, int, int]:
+        query_norm = self._normalize_search_name(query)
+        cand_norm = self._normalize_search_name(candidate)
+
+        if not query_norm or not cand_norm:
+            return (4, 9999, 9999)
+        if cand_norm == query_norm:
+            return (0, 0, len(cand_norm))
+        if cand_norm.startswith(query_norm):
+            return (1, len(cand_norm) - len(query_norm), len(cand_norm))
+        if query_norm in cand_norm:
+            return (2, cand_norm.find(query_norm), len(cand_norm))
+        return (3, abs(len(cand_norm) - len(query_norm)), len(cand_norm))
+
+    @staticmethod
+    def _find_tag_open_end(source: str, start_index: int) -> int:
+        """Return the index of the '>' that closes a tag, ignoring quoted content."""
+        quote: str | None = None
+        i = start_index
+        length = len(source)
+
+        while i < length:
+            ch = source[i]
+            if quote:
+                if ch == quote:
+                    quote = None
+            else:
+                if ch == '"' or ch == "'":
+                    quote = ch
+                elif ch == ">":
+                    return i
+            i += 1
+
+        return -1
+
+    @classmethod
+    def _extract_numeric_href_anchors(cls, source: str) -> list[tuple[int, str]]:
+        """Extract (item_id, anchor_text) for anchors like <a href=\"123\">...</a>."""
+        anchors: list[tuple[int, str]] = []
+
+        for match in re.finditer(r'<a\b[^>]*\bhref="(\d+)"', source, re.IGNORECASE):
+            item_id = int(match.group(1))
+            tag_start = match.start()
+            open_end = cls._find_tag_open_end(source, tag_start)
+            if open_end == -1:
+                continue
+
+            close_tag = source.find("</a>", open_end + 1)
+            if close_tag == -1:
+                continue
+
+            inner_html = source[open_end + 1:close_tag]
+            text = cls._strip_html_text(inner_html)
+            if text:
+                anchors.append((item_id, text))
+
+        return anchors
+
+    async def eriones_search(self, name: str, lang: str = "jp") -> int | None:
+        """Search eriones.com and return the best matching item ID."""
+        url = ERIONES_SEARCH_EN if lang == "en" else ERIONES_SEARCH_JP
+        ssl_verify = lang != "en"
+        params = {"i": name, "il": "1-275", "img": "on"}
+        async with self.session.get(url, params=params, ssl=ssl_verify) as resp:
+            if resp.status != 200:
+                return None
+            html = await resp.text(encoding="utf-8", errors="ignore")
+
+        # Search results contain multiple duplicate links per item (icon + text).
+        # Capture all numeric href item links and rank by name similarity.
+        raw_matches = self._extract_numeric_href_anchors(html)
+        candidates: list[tuple[int, str]] = []
+        seen_ids: set[int] = set()
+
+        for item_id, clean_name in raw_matches:
+            if not re.search(r"[A-Za-z0-9\u3040-\u30ff\u4e00-\u9faf]", clean_name):
+                continue
+
+            if item_id in seen_ids:
+                continue
+
+            seen_ids.add(item_id)
+            candidates.append((item_id, clean_name))
+
+        if not candidates:
+            return None
+
+        best_id, _ = min(candidates, key=lambda c: self._match_priority(name, c[1]))
+        return best_id
+
+    async def eriones_item(self, item_id: int, lang: str = "jp") -> dict:
+        """Fetch item details from eriones.com (lang='jp') or en.eriones.com (lang='en').
+        en.eriones.com uses ssl=False because their certificate has expired."""
+        base = ERIONES_EN if lang == "en" else ERIONES_JP
+        url = f"{base}/{item_id}"
+        ssl_verify = lang != "en"  # en.eriones.com has an expired cert
+        async with self.session.get(url, ssl=ssl_verify) as resp:
+            if resp.status != 200:
+                return {}
+            html = await resp.text(encoding="utf-8", errors="ignore")
+        return self._parse_eriones_page(html, lang=lang)
+
+    @staticmethod
+    def _strip_html_text(value: str | None) -> str | None:
+        if not value:
+            return None
+
+        parser = _VisibleTextExtractor()
+        parser.feed(value)
+        parser.close()
+
+        normalized = html_lib.unescape(parser.get_text()).strip()
+        return normalized or None
+
+    @classmethod
+    def _parse_eriones_page(cls, html: str, lang: str = "jp") -> dict:
+        result = {}
+
+        # First h2 contains the primary localized name and a secondary name in <small>.
+        h2_match = re.search(r"<h2[^>]*>(.*?)</h2>", html, re.IGNORECASE | re.DOTALL)
+        if h2_match:
+            h2_html = h2_match.group(1)
+            anchors = cls._extract_numeric_href_anchors(h2_html)
+            small_match = re.search(r"<small[^>]*>(.*?)</small>", h2_html, re.IGNORECASE | re.DOTALL)
+
+            primary_name = anchors[0][1] if anchors else None
+            secondary_name = cls._strip_html_text(small_match.group(1)) if small_match else None
+
+            if lang == "en":
+                result["name"] = primary_name or secondary_name
+            else:
+                result["name"] = primary_name or secondary_name
+
+            if secondary_name:
+                result["alt_name"] = secondary_name
+
+        # Fallback for older layouts that still expose item name as the second h3.
+        if not result.get("name"):
+            all_h3 = re.findall(r'<h3[^>]*>([^<]+)</h3>', html)
+            if len(all_h3) >= 2:
+                result["name"] = all_h3[1].strip()
+
+        ilvl_match = re.search(r'(?:アイテムレベル|Item level)[：:]\s*(\d+)', html, re.IGNORECASE)
+        if ilvl_match:
+            result["ilvl"] = ilvl_match.group(1)
+        rlv_match = re.search(r'(?:装備レベル|Equip level)[：:]\s*(\d+)', html, re.IGNORECASE)
+        if rlv_match:
+            result["rlv"] = rlv_match.group(1)
+        icon_match = re.search(r'src="(//cdn\.eriones\.com/img/icon/ls_nq/[^"]+)"', html)
+        if icon_match:
+            result["icon"] = f"https:{icon_match.group(1)}"
+        cat_match = re.search(r'db_view\?cid=\d+">([^<]+)</a>', html)
+        if cat_match:
+            result["category"] = cat_match.group(1).strip()
+
+        result.update(cls._parse_eriones_stats_from_text(html))
+        return result
+
+    @classmethod
+    def _normalize_eriones_text(cls, html: str) -> str:
+        text = cls._strip_html_text(html) or ""
+        text = text.translate(cls.FULLWIDTH_TRANSLATION)
+        return re.sub(r"\s+", " ", text).strip()
+
+    @classmethod
+    def _extract_named_stat(cls, text: str, labels: list[str], *, signed: bool = False) -> str | None:
+        value_pattern = r"([+\-]?\d+(?:\(\d+\))?)" if signed else r"(\d+(?:\(\d+\))?)"
+        for label in labels:
+            pattern = rf"{re.escape(label)}\s*:?\s*{value_pattern}"
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        return None
+
+    @classmethod
+    def _extract_stat_pair(cls, text: str, labels: list[str]) -> str | None:
+        return cls._extract_named_stat(text, labels, signed=True)
+
+    @classmethod
+    def _extract_class_name(cls, text: str) -> str | None:
+        patterns = [
+            r"Class\s*:?\s*([A-Z]{2,3}(?:\s+[A-Z]{2,3})+|[A-Z]{2,3})",
+            r"クラス\s*:?\s*([^\-]+?)(?:\s+Sale\s+price|\s+Category|\s+Item\s+level|$)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                value = match.group(1).strip(" -")
+                value = re.sub(r"\s+", " ", value)
+                if value:
+                    return value
+        return None
+
+    @classmethod
+    def _equipment_slot_from_category(cls, category: str | None) -> str | None:
+        if not category:
+            return None
+        lowered = category.lower()
+        for keyword, slot in cls.EQUIPMENT_SLOT_KEYWORDS.items():
+            if keyword in lowered:
+                return slot
+        return None
+
+    @classmethod
+    def _parse_eriones_stats_from_text(cls, html: str) -> dict:
+        text = cls._normalize_eriones_text(html)
+        if not text:
+            return {}
+
+        stats: dict[str, str] = {}
+
+        ilvl = cls._extract_named_stat(text, ["Item level", "アイテムレベル"])
+        if ilvl:
+            stats["ilvl"] = ilvl
+
+        rlv = cls._extract_named_stat(text, ["Equip Level", "装備レベル"])
+        if rlv:
+            stats["rlv"] = rlv
+
+        class_name = cls._extract_class_name(text)
+        if class_name:
+            stats["class"] = class_name
+
+        labeled_stats = [
+            ("Defense", ["Defense", "防御力"], False),
+            ("Magic Defense", ["Magic Defense", "魔法防御力"], False),
+            ("Physical Damage", ["Physical Damage", "物理攻撃力"], False),
+            ("Auto-Attack", ["Auto-Attack", "オートアタック"], False),
+            ("Delay", ["Delay", "攻撃間隔"], False),
+            ("Block Strength", ["Block Strength", "受け流し発動力"], False),
+            ("Block Rate", ["Block Rate", "受け流し発動率"], False),
+            ("Craftsmanship", ["Craftsmanship", "作業精度"], True),
+            ("Control", ["Control", "加工精度"], True),
+            ("CP", ["CP", "クラフターCP", "クラフターＣＰ"], True),
+            ("STR", ["STR", "Strength"], True),
+            ("DEX", ["DEX", "Dexterity"], True),
+            ("VIT", ["VIT", "Vitality"], True),
+            ("INT", ["INT", "Intelligence"], True),
+            ("MND", ["MND", "Mind"], True),
+            ("CRT", ["CRT", "Critical Hit"], True),
+            ("DET", ["DET", "Determination"], True),
+            ("DH", ["DH", "Direct Hit"], True),
+            ("SKS", ["SKS", "Skill Speed"], True),
+            ("SPS", ["SPS", "Spell Speed"], True),
+            ("TEN", ["TEN", "Tenacity"], True),
+            ("PIE", ["PIE", "Piety"], True),
+        ]
+
+        for key, labels, signed in labeled_stats:
+            value = cls._extract_named_stat(text, labels, signed=signed)
+            if value:
+                stats[key] = value.replace(" ", "")
+
+        return stats
+
+    @classmethod
+    def _format_equipment_stats(cls, item: dict, input_language: str = "en") -> str | None:
+        lines = []
+        class_name = item.get("class")
+        if class_name:
+            lines.append(f"Class: {class_name}")
+
+        ordered_keys = [
+            "Defense",
+            "Magic Defense",
+            "Physical Damage",
+            "Auto-Attack",
+            "Delay",
+            "Block Strength",
+            "Block Rate",
+            "Craftsmanship",
+            "Control",
+            "CP",
+            "STR",
+            "DEX",
+            "VIT",
+            "INT",
+            "MND",
+            "CRT",
+            "DET",
+            "DH",
+            "SKS",
+            "SPS",
+            "TEN",
+            "PIE",
+        ]
+
+        for key in ordered_keys:
+            value = item.get(key)
+            if value:
+                if key == "Craftsmanship":
+                    if input_language == "en":
+                        lines.append(f"Craftsmanship: {value}")
+                    else:
+                        lines.append(f"Craftsmanship (作業精度): {value}")
+                elif key == "Control":
+                    if input_language == "en":
+                        lines.append(f"Control: {value}")
+                    else:
+                        lines.append(f"Control (加工精度): {value}")
+                elif key == "CP":
+                    if input_language == "en":
+                        lines.append(f"CP: {value}")
+                    else:
+                        lines.append(f"CP (クラフターCP): {value}")
+                else:
+                    lines.append(f"{key}: {value}")
+
+        if not lines:
+            return None
+
+        text = "\n".join(lines)
+        return text[:1021] + "..." if len(text) > 1024 else text
+
+    @staticmethod
+    def _clean_item_name(name: str | None) -> str | None:
+        if not name:
+            return None
+        normalized = name.strip()
+        if not normalized:
+            return None
+
+        # Ignore section header placeholders returned by some eriones page layouts.
+        lower = normalized.lower()
+        condensed = re.sub(r"\s+", " ", lower)
+        if (
+            "item information" in condensed
+            or "アイテム情報" in normalized
+        ):
+            return None
+        return normalized
+
     @staticmethod
     def _format_item_stats(item: dict, compact: bool = False) -> str | None:
         label_map = [
@@ -212,80 +599,84 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
     # =============================
     @commands.command(
         name="item",
-        help="Search for an FFXIV item by name (English/Japanese). Use !item short <name> for compact output",
-        description="Command: !item [short|--short] <name>",
+        help="Search for an FFXIV item by name (English/Japanese) via eriones.com",
+        description="Command: !item <name>",
         brief="Search for an FFXIV item"
     )
     async def item_search(self, ctx: commands.Context, *, name: str):
-        compact = False
         query_name = name.strip()
-        lowered = query_name.lower()
-
-        if lowered.startswith("short "):
-            compact = True
-            query_name = query_name[6:].strip()
-        elif lowered.startswith("--short "):
-            compact = True
-            query_name = query_name[8:].strip()
 
         if not query_name:
             await ctx.send("Please provide an item name. Usage: `!item [short|--short] <name>`")
             return
 
         detected_lang = self.detect_language(query_name)
-        cache_key = f"item:auto:{query_name.lower()}"
-        results = self.cache.get(cache_key)
+        cache_key = f"item:eriones:v2:{query_name.lower()}"
+        item_id = self.cache.get(cache_key)
 
-        if results is None:
-            results = await self.garland_search(query_name, lang=detected_lang)
-            self.cache.set(cache_key, results)
+        if item_id is None:
+            item_id = await self.eriones_search(query_name, lang=detected_lang)
+            if item_id:
+                self.cache.set(cache_key, item_id)
 
-        if not results:
+        if not item_id:
             await ctx.send("No items found.")
             return
 
-        item_id = results[0]["obj"]["i"]
+        # Fetch EN/JP details from Eriones only.
+        en_item, jp_item = await asyncio.gather(
+            self.eriones_item(item_id, lang="en"),
+            self.eriones_item(item_id, lang="jp"),
+        )
 
-        # Fetch EN and JP details in parallel
-        en_item, ja_item = await asyncio.gather(
-            self.garland_item(item_id, "en"),
-            self.garland_item(item_id, "ja"),
+        en_name = (
+            self._clean_item_name(en_item.get("name"))
+            or self._clean_item_name(jp_item.get("name"))
+            or "Unknown Item"
+        )
+        jp_name = (
+            self._clean_item_name(jp_item.get("name"))
+            or self._clean_item_name(en_item.get("name"))
+            or "N/A"
         )
 
         embed = discord.Embed(
-            title=en_item.get("name", "Unknown Item"),
-            url=GARLAND_DB.format(item_id=item_id),
+            title=en_name,
+            url=f"{ERIONES_EN}/{item_id}",
             color=discord.Color.blurple()
         )
 
-        icon_url = self._normalize_icon_url(en_item.get("icon") or ja_item.get("icon"))
+        icon_url = en_item.get("icon") or jp_item.get("icon")
         if icon_url:
             embed.set_thumbnail(url=icon_url)
 
-        embed.add_field(name="English", value=en_item.get("name", "N/A"), inline=False)
-        embed.add_field(name="Japanese", value=ja_item.get("name", "N/A"), inline=False)
-        embed.add_field(name="Item Level", value=en_item.get("ilvl", "N/A"))
-        embed.add_field(name="Required Level", value=en_item.get("rlv", "N/A"))
+        embed.add_field(name="English", value=en_name, inline=False)
+        embed.add_field(name="Japanese", value=jp_name, inline=False)
+        embed.add_field(name="Item Level", value=jp_item.get("ilvl") or en_item.get("ilvl") or "N/A")
+        embed.add_field(name="Required Level", value=jp_item.get("rlv") or en_item.get("rlv") or "N/A")
 
-        category = en_item.get("category")
-        if isinstance(category, dict):
-            category = category.get("name")
+        category = en_item.get("category") or jp_item.get("category")
         if category:
             embed.add_field(name="Category", value=category)
 
-        stats_text = self._format_item_stats(en_item, compact=compact)
-        if stats_text:
-            embed.add_field(name="Stats", value=stats_text, inline=False)
+        equipment_slot = self._equipment_slot_from_category(category)
+        if equipment_slot:
+            embed.add_field(name="Equipment Slot", value=equipment_slot)
+
+        equipment_stats = self._format_equipment_stats(en_item, input_language=detected_lang)
+        if equipment_stats:
+            stats_field_name = "Equipment Stats" if detected_lang == "en" else "装備ステータス"
+            embed.add_field(name=stats_field_name, value=equipment_stats, inline=False)
 
         embed.add_field(name="Detected Input Language", value=detected_lang.upper())
-        embed.set_footer(text="Data & image from garlandtools.org")
+        embed.set_footer(text="Data from eriones.com")
 
         await ctx.send(embed=embed)
 
     @item_search.error
     async def item_search_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Please provide an item name. Usage: `!item [short|--short] <name>`")
+            await ctx.send("Please provide an item name. Usage: `!item <name>`")
 
     # =============================
     # Cross-Language Translation — !translate_item <en|ja> <name>
