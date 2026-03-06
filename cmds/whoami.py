@@ -9,7 +9,7 @@ from discord.ext import commands
 )   
 #Bot created in version 3.11.5 
 async def whoami(ctx):
-    await ctx.send("I am a bot created by Kentaru Mupuru, for suggestion please contact him. Please reference !help for more commands")  
+    await ctx.send("I am a bot created by Kentaru Mupuru, for suggestions please contact him. Please reference !help for more commands")  
     
     
 async def setup(client):
