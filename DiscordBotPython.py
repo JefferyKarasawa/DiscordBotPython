@@ -13,7 +13,7 @@ if os.path.exists(os.getcwd() + "/config.json"):
     with open("./config.json") as f:
         configData = json.load(f)
 else: 
-    configTemplate = {"Token": "", "Prefix" : "!"}
+    configTemplate = {"Token": "", "Prefix" : "！"}
     with open(os.getcwd() + "/config.json", "w+") as f:
        json.dump(configTemplate, f) 
     
@@ -24,7 +24,7 @@ prefix = configData["Prefix"]
 #intents and bot start command
 intents = discord.Intents.all()
 intents.message_content = True
-client = commands.Bot(command_prefix="!", intents=intents)
+client = commands.Bot(command_prefix=["!", "！"], intents=intents)
 
 
 
