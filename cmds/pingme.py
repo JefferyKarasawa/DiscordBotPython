@@ -11,8 +11,9 @@ import time
 )    
 async def pingme(ctx):
     before = time.monotonic()
+    msg = await ctx.send("Pinging...")
     latency = (time.monotonic() - before) * 1000
-    await ctx.send(f"Your ping is {int(latency)} ms.")
+    await msg.edit(content=f"Your ping is {int(latency)} ms.")
     
     
 async def setup(client):
