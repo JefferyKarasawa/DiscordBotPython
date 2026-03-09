@@ -1,31 +1,23 @@
 import discord
-import json
 import os
 import settings
 from discord.ext import commands
-import requests
+from dotenv import load_dotenv
 
-#making secure file config.json to add in prefix and token
+load_dotenv()
+
 logger = settings.logging.getLogger("client")
 
+token = os.getenv("DISCORD_TOKEN")
+prefix = os.getenv("DISCORD_PREFIX", "!")
 
-if os.path.exists(os.getcwd() + "/config.json"):
-    with open("./config.json") as f:
-        configData = json.load(f)
-else: 
-    configTemplate = {"Token": "", "Prefix" : "！"}
-    with open(os.getcwd() + "/config.json", "w+") as f:
-       json.dump(configTemplate, f) 
-    
-    
-token = configData["Token"]
-prefix = configData["Prefix"]
+if not token:
+    raise RuntimeError("DISCORD_TOKEN is not set in .env")
 
 #intents and bot start command
 intents = discord.Intents.all()
 intents.message_content = True
 client = commands.Bot(command_prefix=["!", "！"], intents=intents)
-
 
 
 #logging info
@@ -41,14 +33,5 @@ async def on_ready():
     logger.info("Slash commands synced.")
 
 
-#@client.event
-#async def on_message_edit(before, after):
-#    await before.channel.send(str(before.author) + " edited a message.\nBefore: " + before.content + "\nAfter: " + after.content)
-
 #start the bot
 client.run(token, root_logger=True)
-
-
-
-
-

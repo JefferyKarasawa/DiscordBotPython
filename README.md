@@ -15,7 +15,7 @@ Python **3.10 or higher** is required (uses `str | None` union syntax).
 Install all dependencies with:
 
 ```bash
-pip install discord.py aiohttp requests
+pip install discord.py aiohttp requests python-dotenv
 ```
 
 | Package | Used For |
@@ -23,33 +23,27 @@ pip install discord.py aiohttp requests
 | `discord.py` (2.x) | Core bot framework, slash commands, cogs |
 | `aiohttp` | Async HTTP requests in the FFXIV cog |
 | `requests` | Weather API calls |
+| `python-dotenv` | Loading API keys and config from `.env` |
 
 ---
 
-## Configuration Files
+## Configuration
 
-Before starting the bot, create the following files in the project root:
+Before starting the bot, create a `.env` file in the project root with the following contents:
 
-### `config.json`
-Created automatically on first run. Fill in your bot token:
-```json
-{
-    "Token": "YOUR_BOT_TOKEN_HERE",
-    "Prefix": "！"
-}
+```env
+DISCORD_TOKEN=YOUR_BOT_TOKEN_HERE
+DISCORD_PREFIX=!
+OPENWEATHER_API_KEY=YOUR_OPENWEATHERMAP_API_KEY
+XIVAPI_KEY=YOUR_XIVAPI_KEY
 ```
 
-### `api_key.json`
-Create this manually:
-```json
-{
-    "api_key": "YOUR_OPENWEATHERMAP_API_KEY",
-    "xivapi_key": "YOUR_XIVAPI_KEY"
-}
-```
+- **DISCORD_TOKEN** — your bot token from the [Discord Developer Portal](https://discord.com/developers/applications)
+- **DISCORD_PREFIX** — command prefix (default `!`)
+- **OPENWEATHER_API_KEY** — free tier at https://openweathermap.org/api
+- **XIVAPI_KEY** — obtain at https://xivapi.com (used for FFXIV commands)
 
-- **OpenWeatherMap API key** — free tier at https://openweathermap.org/api
-- **XIVAPI key** — obtain at https://xivapi.com (used for FFXIV commands)
+> The `.env` file is listed in `.gitignore` and will not be committed to source control.
 
 ---
 

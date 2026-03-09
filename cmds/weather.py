@@ -1,16 +1,12 @@
 import requests
-import json
 import os
 from discord.ext import commands
 import discord
+from dotenv import load_dotenv
 
+load_dotenv()
 
-
-
-#using API to grab weather information
-
-with open('api_key.json', 'r') as f:
-    api_key = json.load(f)
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 
 def geocode_city(city, state=None, country=None):
@@ -19,7 +15,7 @@ def geocode_city(city, state=None, country=None):
     query = ",".join(parts)
     r = requests.get(
         "http://api.openweathermap.org/geo/1.0/direct",
-        params={"q": query, "limit": 1, "appid": api_key['api_key']}
+        params={"q": query, "limit": 1, "appid": OPENWEATHER_API_KEY}
     )
     data = r.json()
     return data[0] if data else None
@@ -29,7 +25,7 @@ def get_weather_by_coords(lat, lon):
     """Fetch weather data using coordinates."""
     r = requests.get(
         "https://api.openweathermap.org/data/2.5/weather",
-        params={"lat": lat, "lon": lon, "units": "metric", "appid": api_key['api_key']}
+        params={"lat": lat, "lon": lon, "units": "metric", "appid": OPENWEATHER_API_KEY}
     )
     return r.json()
 
