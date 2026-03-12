@@ -616,6 +616,18 @@ class FFXIVCog(commands.Cog, name="FFXIV"):
 
         if item_id is None:
             item_id = await self.eriones_search(query_name, lang=detected_lang)
+            if not item_id and detected_lang == "en" and " " in query_name:
+                # Eriones search struggles with multi-word EN queries.
+                # Use Garland Tools to resolve the JP name, then re-search Eriones with it.
+                garland_results = await self.garland_search(query_name, lang="en")
+                if garland_results:
+                    garland_id = garland_results[0]["obj"]["i"]
+                    jp_data = await self.garland_item(garland_id, lang="ja")
+                    jp_name_from_garland = jp_data.get("name")
+                    if jp_name_from_garland:
+                        item_id = await self.eriones_search(jp_name_from_garland, lang="ja")
+                    if not item_id:
+                        item_id = garland_id  # fallback: IDs are universal FFXIV item IDs
             if item_id:
                 self.cache.set(cache_key, item_id)
 
