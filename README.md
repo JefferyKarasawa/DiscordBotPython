@@ -36,12 +36,18 @@ DISCORD_TOKEN=YOUR_BOT_TOKEN_HERE
 DISCORD_PREFIX=!
 OPENWEATHER_API_KEY=YOUR_OPENWEATHERMAP_API_KEY
 XIVAPI_KEY=YOUR_XIVAPI_KEY
+MINHON_API_KEY=YOUR_MINHON_API_KEY
+MINHON_API_SECRET=YOUR_MINHON_API_SECRET
+MINHON_LOGIN_ID=YOUR_MINHON_LOGIN_ID
 ```
 
 - **DISCORD_TOKEN** — your bot token from the [Discord Developer Portal](https://discord.com/developers/applications)
 - **DISCORD_PREFIX** — command prefix (default `!`)
 - **OPENWEATHER_API_KEY** — free tier at https://openweathermap.org/api
 - **XIVAPI_KEY** — obtain at https://xivapi.com (used for FFXIV commands)
+- **MINHON_API_KEY** — API key from the [TexTra Web API settings](https://mt-auto-minhon-mlt.ucri.jgn-x.jp) (used for `!translate`)
+- **MINHON_API_SECRET** — API secret from the same TexTra settings page
+- **MINHON_LOGIN_ID** — your TexTra account username/login ID
 
 > The `.env` file is listed in `.gitignore` and will not be committed to source control.
 
@@ -107,6 +113,7 @@ All prefix commands support both `!` and `！` (full-width).
 | `!item <name>` | Search for an FFXIV item |
 | `!translate_item <lang> <name>` | Translate an FFXIV item name |
 | `!market <server> <item>` | FFXIV market board prices |
+| `!translate <text>` | Translate between English and Japanese (auto-detects direction) |
 | `!tictactoe start/place/stop/finish` | Play tic-tac-toe |
 
 ### Anti-Spam (Automatic)
