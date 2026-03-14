@@ -74,6 +74,14 @@ class HelpCog(commands.Cog, name="Help"):
                 inline=False
             )
             embed.add_field(
+                name="翻訳",
+                value=(
+                    "`!translate <テキスト>` — 英語↔日本語の自動翻訳（言語を自動検出）\n"
+                    "日本語に翻訳する場合は漢字とひらがな読みを表示"
+                ),
+                inline=False
+            )
+            embed.add_field(
                 name="ゲーム (`!tictactoe`)",
                 value=(
                     "`!tictactoe start <プレイヤー1> <プレイヤー2>` — ゲーム開始\n"
@@ -137,6 +145,14 @@ class HelpCog(commands.Cog, name="Help"):
                     "`!item <name>` — Search for an FFXIV item\n"
                     "`!translate_item <lang> <name>` — Translate an item name\n"
                     "`!market <server> <item name>` — Market board prices"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="Translation",
+                value=(
+                    "`!translate <text>` — Auto-translate between English and Japanese (direction auto-detected)\n"
+                    "Shows kanji and hiragana reading when translating to Japanese"
                 ),
                 inline=False
             )

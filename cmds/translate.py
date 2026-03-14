@@ -1,6 +1,7 @@
 import os
 import re
 import aiohttp
+import pykakasi
 from discord.ext import commands
 import discord
 from dotenv import load_dotenv
@@ -17,6 +18,13 @@ API_URL = "https://mt-auto-minhon-mlt.ucri.jgn-x.jp/api/"
 JAPANESE_PATTERN = re.compile(
     r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]'
 )
+
+_kakasi = pykakasi.kakasi()
+
+
+def to_hiragana_reading(text: str) -> str:
+    """Convert a Japanese string to its full hiragana reading."""
+    return "".join(item["hira"] for item in _kakasi.convert(text))
 
 
 def detect_language(text: str) -> str:
@@ -76,6 +84,9 @@ async def translate(ctx, *, text: str):
     embed = discord.Embed(title="Translation", color=discord.Color.green())
     embed.add_field(name=f"Original ({lang_labels[source_lang]})", value=text, inline=False)
     embed.add_field(name=f"Translation ({lang_labels[target_lang]})", value=translated, inline=False)
+    if target_lang == "ja":
+        reading = to_hiragana_reading(translated)
+        embed.add_field(name="Hiragana Reading", value=reading, inline=False)
     await ctx.send(embed=embed)
 
 

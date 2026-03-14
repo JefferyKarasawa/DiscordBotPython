@@ -15,7 +15,7 @@ Python **3.10 or higher** is required (uses `str | None` union syntax).
 Install all dependencies with:
 
 ```bash
-pip install discord.py aiohttp requests python-dotenv
+pip install discord.py aiohttp requests python-dotenv pykakasi
 ```
 
 | Package | Used For |
@@ -24,6 +24,7 @@ pip install discord.py aiohttp requests python-dotenv
 | `aiohttp` | Async HTTP requests in the FFXIV cog |
 | `requests` | Weather API calls |
 | `python-dotenv` | Loading API keys and config from `.env` |
+| `pykakasi` | Converting kanji to hiragana reading in `!translate` |
 
 ---
 
@@ -113,7 +114,7 @@ All prefix commands support both `!` and `！` (full-width).
 | `!item <name>` | Search for an FFXIV item |
 | `!translate_item <lang> <name>` | Translate an FFXIV item name |
 | `!market <server> <item>` | FFXIV market board prices |
-| `!translate <text>` | Translate between English and Japanese (auto-detects direction) |
+| `!translate <text>` | Translate between English and Japanese (auto-detects direction); includes hiragana reading when translating to Japanese |
 | `!tictactoe start/place/stop/finish` | Play tic-tac-toe |
 
 ### Anti-Spam (Automatic)
